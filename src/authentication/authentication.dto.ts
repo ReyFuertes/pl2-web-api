@@ -1,13 +1,18 @@
 import { ICharacterDto } from "src/characters/characters.dto";
-
-export class IRegisterPayloadDto {
+export interface IChangePasswordPayloadDto {
+  username?: string;
+  currentPassword?: string;
+  newPassword?: string;
+  confirmNewPassword?: string;
+}
+export interface IRegisterPayloadDto {
   login: string;
   password: string;
 }
-export class IRegisterResponseDto {
+export interface IRegisterResponseDto {
   status: AuthType;
 }
-export class ILoginResponseDto {
+export interface ILoginResponseDto {
   status: AuthType;
   detail: {
     characters: ICharacterDto[]

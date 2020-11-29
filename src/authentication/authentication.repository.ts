@@ -1,9 +1,9 @@
 import { Repository, EntityRepository, getCustomRepository } from 'typeorm';
 import * as _ from 'lodash';
 import { Accounts } from './authentication.entity';
-import { IRegisterPayloadDto, IRegisterResponseDto, AuthType, ILoginResponseDto } from './authentication.dto';
+import { IRegisterPayloadDto, IRegisterResponseDto, AuthType, ILoginResponseDto, IChangePasswordPayloadDto } from './authentication.dto';
 import { BadRequestException } from '@nestjs/common';
-import { CharacterRepository } from 'src/characters/characters.repository';
+import { CharactersRepository } from 'src/characters/characters.repository';
 import { ICharacterDto } from 'src/characters/characters.dto';
 const sha1 = require('sha1');
 const utf8 = require('utf8');
@@ -12,6 +12,39 @@ const bcrypt = require('bcrypt');
 
 @EntityRepository(Accounts)
 export class AutheticationRepository extends Repository<Accounts> {
+  async changePassword(dto: IChangePasswordPayloadDto): Promise<any> {
+    /* hash password */
+    const password = utf8.encode(dto.currentPassword)
+    const hashPassword = crypto.createHash('sha1').update(password).digest('base64');
+
+    const match = await this.findOne({ login: dto.username });
+   
+    if (match) {
+      /* add condition of access level of admins */
+
+      if (match.password === hashPassword) {
+
+        /* check if two passwords matched */
+        if(dto.newPassword === dto.confirmNewPassword) {
+          const hashNewPassword = crypto.createHash('sha1').update(dto.newPassword).digest('base64');
+
+          const payload = {
+            login: dto.username,
+            password: hashNewPassword
+          }
+          await this.save(payload);
+        } else {
+          throw new BadRequestException({ status: AuthType.failed });
+        }
+        return { status: AuthType.success };
+      } else {
+        throw new BadRequestException({ status: AuthType.failed });
+      }
+    } else {
+      throw new BadRequestException({ status: AuthType.failed });
+    }
+  }
+
   async logout(token: any): Promise<any> {
     const match = await this.findOne({ token: token });
     if (match) {
@@ -38,11 +71,15 @@ export class AutheticationRepository extends Repository<Accounts> {
         match.token = token;
         await this.save(match);
 
-        const char_repo = getCustomRepository(CharacterRepository);
+        const char_repo = getCustomRepository(CharactersRepository);
         const char_query = char_repo.createQueryBuilder('characters');
         let results: any[] = await char_query
           .where('account_name = :account_name', { account_name: match.login })
           .getRawMany();
+
+        if(results && results.length === 0) {
+          throw new BadRequestException({ status: AuthType.failed });
+        }
 
         const account_name: string = results[0].characters_account_name;
 
